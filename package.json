@@ -1,0 +1,6 @@
+{
+  "name": "constructor-viral-backend",
+  "version": "1.0.0",
+  "description": "Backend proxy seguro para Claude API - Constructor de Productos Digitales Virales",
+  "private": true
+}
