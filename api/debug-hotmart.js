@@ -28,11 +28,12 @@ export default async function handler(req, res) {
   const base = 'https://developers.hotmart.com/payments/api/v1/sales/history';
 
   // Probar 4 variantes del endpoint
+  const startDate = Date.now() - (2 * 365 * 24 * 60 * 60 * 1000);
   const tests = [
-    { name: 'sin_params', url: base },
-    { name: 'solo_transaction_status', url: `${base}?transaction_status=APPROVED` },
-    { name: 'buyer_email_approved', url: `${base}?transaction_status=APPROVED&buyer_email=info%40rosemediaagency.com` },
-    { name: 'buyer_name', url: `${base}?buyer_name=andres` },
+    { name: 'con_start_date', url: `${base}?start_date=${startDate}` },
+    { name: 'start_date_y_email', url: `${base}?start_date=${startDate}&buyer_email=info%40rosemediaagency.com` },
+    { name: 'start_date_y_approved', url: `${base}?start_date=${startDate}&transaction_status=APPROVED` },
+    { name: 'start_date_email_approved', url: `${base}?start_date=${startDate}&buyer_email=info%40rosemediaagency.com&transaction_status=APPROVED` },
   ];
 
   const results = {};
