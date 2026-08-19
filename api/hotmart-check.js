@@ -73,13 +73,13 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'Hotmart no devolvió un token de acceso válido.' });
     }
 
-    // Paso 2: consultar historial de ventas filtrado por email y producto
-    // Sin el filtro transaction_status, Hotmart devuelve por defecto
-    // los estados APPROVED (pago confirmado) y COMPLETE (garantía ya vencida),
-    // que son exactamente los dos estados que cuentan como "acceso válido".
-    const salesUrl = `https://developers.hotmart.com/payments/api/v1/sales/history?product_id=${HOTMART_PRODUCT_ID}&buyer_email=${encodeURIComponent(normalizedEmail)}`;
+    // Paso 2: consultar historial de ventas filtrado solo por email del comprador
+    // Hotmart no permite combinar product_id + buyer_email en el mismo request,
+    // así que buscamos todas las ventas del email y filtramos por producto localmente.
+    const salesUrl = `https://developers.hotmart.com/payments/api/v1/sales/history?buyer_email=${encodeURIComponent(normalizedEmail)}`;
 
     const salesRes = await fetch(salesUrl, {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
@@ -93,7 +93,13 @@ export default async function handler(req, res) {
     }
 
     const salesData = await salesRes.json();
-    const hasPurchase = Array.isArray(salesData.items) && salesData.items.length > 0;
+    const items = Array.isArray(salesData.items) ? salesData.items : [];
+
+    // Filtramos localmente: solo contar ventas del producto correcto
+    const hasPurchase = items.some(item => {
+      const productId = String(item.product?.id || item.purchase?.product?.id || '');
+      return productId === HOTMART_PRODUCT_ID;
+    });
 
     return res.status(200).json({ allowed: hasPurchase });
 
