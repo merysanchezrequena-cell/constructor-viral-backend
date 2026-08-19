@@ -48,13 +48,15 @@ export default async function handler(req, res) {
     const normalizedEmail = email.trim().toLowerCase();
 
     // Paso 1: obtener access token de Hotmart (OAuth2 client_credentials)
+    // Nota: el campo HOTMART_BASIC ya incluye el prefijo "Basic " tal como
+    // lo genera Hotmart (ej. "Basic dXNlcjpwYXNz..."), no hay que añadirlo de nuevo
     const tokenRes = await fetch(
       `https://api-sec-vlc.hotmart.com/security/oauth/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${basic}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': basic.startsWith('Basic ') ? basic : `Basic ${basic}`,
         },
       }
     );
@@ -86,7 +88,8 @@ export default async function handler(req, res) {
 
     if (!salesRes.ok) {
       const errBody = await salesRes.json().catch(() => ({}));
-      return res.status(502).json({ error: 'Error al consultar ventas en Hotmart: ' + (errBody.message || salesRes.status) });
+      console.error('Hotmart sales error:', salesRes.status, JSON.stringify(errBody));
+      return res.status(502).json({ error: 'Error al consultar ventas en Hotmart: ' + (errBody.message || errBody.error || salesRes.status) });
     }
 
     const salesData = await salesRes.json();
