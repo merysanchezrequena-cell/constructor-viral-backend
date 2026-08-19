@@ -11,52 +11,36 @@ export default async function handler(req, res) {
   const clientSecret = process.env.HOTMART_CLIENT_SECRET;
   const basic = process.env.HOTMART_BASIC;
 
-  const debug = {
-    vars: {
-      has_client_id: !!clientId,
-      has_client_secret: !!clientSecret,
-      has_basic: !!basic,
-      basic_starts_with: basic ? basic.substring(0, 10) + '...' : 'EMPTY',
-    }
-  };
-
   // Paso 1: obtener token
-  try {
-    const tokenUrl = `https://api-sec-vlc.hotmart.com/security/oauth/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
-    const tokenRes = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': basic,
-      },
-    });
-    const tokenBody = await tokenRes.text();
-    debug.token_step = {
-      status: tokenRes.status,
-      body: tokenBody.substring(0, 500)
-    };
+  const tokenUrl = `https://api-sec-vlc.hotmart.com/security/oauth/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  const tokenRes = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': basic },
+  });
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
 
-    if (tokenRes.ok) {
-      const tokenData = JSON.parse(tokenBody);
-      const accessToken = tokenData.access_token;
-
-      // Paso 2: llamar al endpoint de ventas sin parámetros
-      const salesRes = await fetch('https://developers.hotmart.com/payments/api/v1/sales/history', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      const salesBody = await salesRes.text();
-      debug.sales_step = {
-        status: salesRes.status,
-        body: salesBody.substring(0, 1000)
-      };
-    }
-  } catch(e) {
-    debug.error = e.message;
+  if (!accessToken) {
+    return res.status(200).json({ error: 'No token', tokenData });
   }
 
-  return res.status(200).json(debug);
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` };
+  const base = 'https://developers.hotmart.com/payments/api/v1/sales/history';
+
+  // Probar 4 variantes del endpoint
+  const tests = [
+    { name: 'sin_params', url: base },
+    { name: 'solo_transaction_status', url: `${base}?transaction_status=APPROVED` },
+    { name: 'buyer_email_approved', url: `${base}?transaction_status=APPROVED&buyer_email=info%40rosemediaagency.com` },
+    { name: 'buyer_name', url: `${base}?buyer_name=andres` },
+  ];
+
+  const results = {};
+  for (const test of tests) {
+    const r = await fetch(test.url, { method: 'GET', headers });
+    const body = await r.text();
+    results[test.name] = { status: r.status, body: body.substring(0, 300) };
+  }
+
+  return res.status(200).json(results);
 }
